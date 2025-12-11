@@ -8,7 +8,7 @@
 int server_fd, new_socket;
 ssize_t valread;
 struct sockaddr_in address;
-int opt = 1;
+char opt = '1';
 int addrlen = sizeof(address);
 char buffer[1024] = {0};
 char *hello = "Hello from server";
@@ -77,24 +77,31 @@ int main(int argc, char const *argv[])
     {
         puts("Ожидание сообщений...");
         valread = recv(new_socket, buffer, sizeof(buffer), 0);
-        if (valread < 0)
+        if (valread <= 0)
         {
             int error_code = WSAGetLastError();
-            printf("Ошибка передачи. Код: %d\n", error_code);
-            if (error_code == WSAECONNRESET)
+
+            switch (error_code)
             {
-                puts("Соединение с клиентом потеряно.");
-                set_connect();
+            case WSAECONNRESET:
+                puts("Существующее соединение было принудительно завершено удаленным узлом.");
+                break;
+
+            case 0:
+                puts("Клиент отключен.");
+                break;
+            default:
+                printf("Непредвиденная ошибка.\nКод: %d\n", error_code);
+                break;
             }
+            set_connect();
         }
 
-        if (buffer[0] != 0)
+        if (valread > 0)
         {
             printf("Сообщение от клиента: %s\n", buffer);
             rewind(stdout);
         }
-
-        sleep(1);
     }
 
     // closing the connected socket
