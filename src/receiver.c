@@ -6,9 +6,10 @@
 struct sockaddr_in address[2] = {0, 0};
 
 int
-    addrlen[2] = {sizeof(address[0]), sizeof(address[1])},
-    ports[2] = {PORT_1, PORT_2},
-    sockets[2] = {0};
+    addrlen[CLIENTS_QUANTITY] = {sizeof(address[0]), sizeof(address[1])},
+    sockets[CLIENTS_QUANTITY] = {0};
+unsigned short
+    ports[CLIENTS_QUANTITY] = {PORT_1, PORT_2};
 
 char opt = '1';
 
