@@ -92,7 +92,8 @@ unsigned long recieve_message(void *arg)
     /* Присвоение адреса структуры пакета.*/
     package *p = (package *)arg;
     recv(p->sock, username, 255, 0);
-    printf("Пользователь %s подключен.\n", username);
+    printf("%s подключен.\n", username);
+    send_message(username);
     /* Бесконечный цикл для приема и передачи сообщений по сети. */
     while (1)
     {
@@ -127,7 +128,7 @@ unsigned long recieve_message(void *arg)
         {
             printf("%s: %s\n", username, message);
             memset(p->data, 0, BUFFER_SIZE);
-            sprintf(p->data, "%s: %s\n", username, message);
+            sprintf(p->data, "%s: %s", username, message);
             send_message(p->data);
             memset(p->data, 0, BUFFER_SIZE);
             rewind(stdout);
