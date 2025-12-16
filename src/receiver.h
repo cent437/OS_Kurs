@@ -14,7 +14,10 @@
 */
 typedef struct package
 {
+    struct sockaddr_in address;
     int sock;
+    int recv_socket;
+    int addrlen;
     char data[BUFFER_SIZE];
 } package;
 

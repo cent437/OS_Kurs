@@ -15,7 +15,7 @@ char opt = '1';
 
 package **package_data;
 HANDLE
-send_receive_thread[CLIENTS_QUANTITY];
+send_receive_thread[CLIENTS_QUANTITY] = {NULL, NULL};
 
 void init()
 {
@@ -63,14 +63,19 @@ void set_connect()
             exit(EXIT_FAILURE);
         }
         /* Установка соединения и создание сокетов для передачи и приема данных. */
-        if (((package_data[i]->sock = accept(sockets[i], (struct sockaddr *)&address[i],
-                                             &addrlen[i])) < 0))
+        package_data[i]->address = address[i];
+        package_data[i]->addrlen = addrlen[i];
+        package_data[i]->sock = sockets[i];
+
+        if (((package_data[i]->recv_socket = accept(sockets[i], (struct sockaddr *)&address[i],
+                                                    &addrlen[i])) < 0))
         {
             perror("accept");
             exit(EXIT_FAILURE);
         }
         /* Создание и запуск нитей для параллельного приема и передачи данных с клиентских компьютеров. */
-        send_receive_thread[i] = CreateThread(NULL, 0, recieve_message, (void *)package_data[i], 0, NULL);
+        if (send_receive_thread[i] == NULL)
+            send_receive_thread[i] = CreateThread(NULL, 0, recieve_message, (void *)package_data[i], 0, NULL);
     }
     WaitForMultipleObjects(2, send_receive_thread, TRUE, INFINITE);
 }
@@ -78,7 +83,7 @@ void set_connect()
 void send_message(const char *data)
 {
     for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
-        send(package_data[i]->sock, data, BUFFER_SIZE, 0);
+        send(package_data[i]->recv_socket, data, BUFFER_SIZE, 0);
 }
 unsigned long recieve_message(void *arg)
 {
@@ -91,14 +96,14 @@ unsigned long recieve_message(void *arg)
         error_code = 0;
     /* Присвоение адреса структуры пакета.*/
     package *p = (package *)arg;
-    recv(p->sock, username, 255, 0);
+    recv(p->recv_socket, username, 255, 0);
     printf("%s подключен.\n", username);
     send_message(username);
     /* Бесконечный цикл для приема и передачи сообщений по сети. */
     while (1)
     {
 
-        valread = recv(p->sock, message, BUFFER_SIZE, 0);
+        valread = recv(p->recv_socket, message, BUFFER_SIZE, 0);
         /*
             Обработка исключений через переменную,
             хранящую кол-во прочитанных из сокета байт.
@@ -113,12 +118,18 @@ unsigned long recieve_message(void *arg)
                 break;
             case 0:
                 printf("Соединение с %s потеряно.\n", username);
+
                 break;
             default:
                 printf("Непредвиденная ошибка.\nКод: %d\n", error_code);
                 break;
             }
-            set_connect();
+            if ((p->recv_socket = accept(p->sock, (struct sockaddr *)&p->address,
+                                         &p->addrlen)) < 0)
+            {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
         }
         /*
             Передача полученного сообщения с первого компьютера всем клиентам,
@@ -128,7 +139,7 @@ unsigned long recieve_message(void *arg)
         {
             printf("%s: %s\n", username, message);
             memset(p->data, 0, BUFFER_SIZE);
-            sprintf(p->data, "%s: %s", username, message);
+            sprintf(p->data, "%s", message);
             send_message(p->data);
             memset(p->data, 0, BUFFER_SIZE);
             rewind(stdout);
