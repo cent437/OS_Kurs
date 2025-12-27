@@ -11,14 +11,16 @@
     Структура пакета с полем для данных
     и сокетом для отправки этих данных.
 */
-typedef struct user
+typedef struct user_database
 {
     struct sockaddr_in address;
     int listen_socket;
     int recv_socket;
     int addrlen;
+    int index;
     char username[255];
     char answer[BUFFER_SIZE];
+
 } user;
 
 /* Инициализация сервера. */
