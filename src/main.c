@@ -4,7 +4,7 @@
 
 int main(int argc, char const *argv[])
 {
-    setlocale(LC_ALL, "ru_RU");
+    system("chcp 65001");
     WSADATA wsaData = {0};
     WSAStartup(MAKEWORD(2, 2), &wsaData);
     init();

@@ -18,7 +18,7 @@ const char protocol_commands[][BUFFER_SIZE] = {
     "MSG_TEXT",
     "MSG_FILE",
     "ERR"};
-user user_database[CLIENTS_QUANTITY] = {0};
+user *head = NULL, *tail = NULL;
 HANDLE
 send_receive_thread[CLIENTS_QUANTITY] = {NULL};
 
@@ -50,9 +50,120 @@ void init()
         exit(EXIT_FAILURE);
     }
 }
+user *create_node()
+{
+    user *p = NULL;
+    if ((p = (user *)malloc(sizeof(user))) == NULL)
+    {
+        perror("Ошибка выделения памяти.");
+        exit(1);
+    }
+    p->next = NULL;
+    p->prev = NULL;
+    memset(p->username, 0, 255);
+    memset(p->answer, 0, BUFFER_SIZE);
+    return p;
+}
+void push_front()
+{
+    user *p = NULL;
+    p = create_node();
+    if (head == NULL && p != NULL)
+    {
+        head = p;
+        tail = p;
+    }
+    else if (head != NULL && p != NULL) // Если список есть, то добавляем элемент в начало списка
+    {
+        head->prev = p;
+        p->next = head;
+        head = p;
+    }
+    return;
+}
+void pop_front()
+{
+    user *p = head;
+    if (head == NULL)
+        return;
+    head = p->next;
+    free(p);
+    p = head;
+    return;
+}
+
+void push_back()
+{
+    user *p = NULL;
+    user *prv = NULL;
+    p = create_node();
+    if (head == NULL && p != NULL) // Если списка нет, то добавляем элемент в голову и в хвост
+    {
+        head = p;
+        tail = p;
+    }
+    else if (head != NULL && p != NULL) // Если список есть, то добавляем элемент в конец списка
+    {
+        tail->next = p;
+        p->prev = tail;
+        tail = p;
+    }
+    return;
+}
+
+void pop_back()
+{
+    user *p = head;
+    user *prev;
+    if (head == NULL) // Если список пуст, возвращаемся
+        return;
+    while (p != tail) // Проход до последнего элемента списка с отслеживанием предпоследнего
+    {
+        prev = p;
+        p = p->next;
+    }
+
+    if (head == tail) // Проверка на то, что в списке 1 элемент
+    {
+        head = NULL; // Обнуляем голову и хвост
+        tail = NULL;
+        return;
+    }
+    free(p);
+    prev->next = NULL;
+    tail = prev;
+    return;
+}
+
+void erase(const char *username)
+{
+    user *current = head, *previous = head->prev, *next = head->next;
+    user *p = NULL;
+    if (strcmp(username, head->username) == 0)
+    {
+        pop_front();
+        return;
+    }
+    if (strcmp(username, tail->username) == 0)
+    {
+        pop_back();
+        return;
+    }
+    while (strcmp(username, current->username) != 0)
+    {
+        current = current->next;
+        previous = current->prev;
+        next = current->next;
+    }
+    p = current;
+    previous->next = next;
+    next->prev = previous;
+    free(p);
+}
 void set_connect()
 {
-
+    push_back();
+    user *iter = head;
     if ((listen(listen_socket, 3) < 0))
     {
         perror("listen");
@@ -62,46 +173,37 @@ void set_connect()
     {
 
         /* Установка соединения и создание сокетов для передачи и приема данных. */
-        user_database[client_counter].address = address;
-        user_database[client_counter].addrlen = addrlen;
-        user_database[client_counter].listen_socket = listen_socket;
-
-        if (((user_database[client_counter].recv_socket = accept(listen_socket, (struct sockaddr *)&address, &addrlen)) < 0))
-        {
-            perror("accept");
-            exit(EXIT_FAILURE);
-        }
+        iter->recv_socket = accept(listen_socket, (struct sockaddr *)&address, &addrlen);
         if (client_counter == CLIENTS_QUANTITY)
-            puts("Сервер не может принять больше клиентов.");
-        else
+            continue;
+        push_back();
         {
             /* Создание и запуск нитей для параллельного приема и передачи данных с клиентских компьютеров. */
-            send_receive_thread[client_counter] =
-                CreateThread(NULL, 0,
-                             send_reveive_protocol,
-                             (void *)&user_database[client_counter],
-                             0,
-                             NULL);
+            send_receive_thread[client_counter] = CreateThread(NULL,
+                                                               0,
+                                                               send_reveive_protocol, iter, 0, NULL);
             client_counter++;
+            iter = iter->next;
         }
     }
 }
-
 void send_user_list()
 {
-    for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
+    user *iter_i = head, *iter_j = head;
+    while (iter_i)
     {
-        printf("%s\n", user_database[i].username);
-        sprintf(user_database[i].answer, "%s|", protocol_commands[0]);
-        for (size_t j = 0; j < CLIENTS_QUANTITY; j++)
+        printf("%s\n", iter_i->username);
+        sprintf(iter_i->answer, "%s|", protocol_commands[0]);
+        while (iter_j->next)
         {
-            if (user_database[j].username[0] == '\0')
-                continue;
-            strcat(user_database[i].answer, user_database[j].username);
-            strcat(user_database[i].answer, "|");
+            strcat(iter_i->answer, iter_j->username);
+            strcat(iter_i->answer, "|");
+            iter_j = iter_j->next;
         }
-        send(user_database[i].recv_socket, user_database[i].answer, BUFFER_SIZE, 0);
-        memset(user_database[i].answer, 0, BUFFER_SIZE);
+        send(iter_i->recv_socket, iter_i->answer, BUFFER_SIZE, 0);
+        memset(iter_i->answer, 0, BUFFER_SIZE);
+        iter_i = iter_i->next;
+        iter_j = head;
     }
 }
 unsigned long send_reveive_protocol(void *arg)
@@ -123,14 +225,14 @@ unsigned long send_reveive_protocol(void *arg)
         error_code = 0;
     /* Присвоение адреса структуры пакета.*/
     user *p = (user *)arg;
-    p->index = client_counter;
-
+    user *iter = NULL;
     /* Бесконечный цикл для приема и передачи сообщений по сети. */
     while (1)
     {
-
+        iter = head;
         if ((valread = recv(p->recv_socket, request, BUFFER_SIZE, 0)) > 0)
         {
+
             char *token = strtok(request, "|");
             strcpy(command, token);
             token = strtok(NULL, "|");
@@ -141,7 +243,8 @@ unsigned long send_reveive_protocol(void *arg)
                 puts(command);
                 token = strtok(NULL, "|");
                 strcpy(p->username, token);
-                printf("Подключено: %d/%d\n", client_counter, CLIENTS_QUANTITY);
+                printf("%s подключен.\n", p->username);
+                sprintf(p->answer, "%s|%s", command, p->username);
                 send_user_list();
             }
             /* Отправка другому клиенту. MT_SEND_TO */
@@ -159,15 +262,17 @@ unsigned long send_reveive_protocol(void *arg)
                     strcpy(message, token); // Получение сообщения.
                     puts(message_type);
                     /* Поиск клиента в базе данных. */
-                    for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
+                    while (iter->next)
                     {
-                        if (strcmp(username, user_database[i].username) == 0)
+                        if (strcmp(username, iter->username) == 0)
                         {
                             /* Отправка ответа клиенту. */
                             sprintf(p->answer, "%s|%s(private)|%s", message_type, p->username, message);
-                            if (send(user_database[i].recv_socket, p->answer, BUFFER_SIZE, 0))
-                                printf("%s -> %s\n", p->username, user_database[i].username);
+                            send(iter->recv_socket, p->answer, BUFFER_SIZE, 0);
+                            printf("[%s - %s]\t%s\n", p->username, iter->username, message);
+                            break;
                         }
+                        iter = iter->next;
                     }
                     if (p->answer[0] == 0)
                     {
@@ -182,29 +287,23 @@ unsigned long send_reveive_protocol(void *arg)
                     token = strtok(NULL, "|");
                     strcpy(message, token); // Получение сообщения.
                     char send_folder_name[255];
-                    struct timeval tv;
-                    int s1[1] = {p->recv_socket};
-                    fd_set readfds;
-                    FD_SET(p->recv_socket, &readfds);
-                    tv.tv_sec = 1;
-                    tv.tv_usec = 0;
-                    int vr = 0;
-                    for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
+
+                    while (iter->next)
                     {
                         /* Поиск клиента в базе данных. */
-                        if (strcmp(username, user_database[i].username) == 0)
+                        if (strcmp(username, iter->username) == 0)
                         {
                             sprintf(p->answer, "%s|%s|%s", message_type, p->username, message);
 
-                            /* Отправка файла клиенту. */
-                            sprintf(send_folder_name, "%s-%s", p->username, user_database[i].username);
+                            sprintf(send_folder_name, "%s-%s", p->username, iter->username);
                             mkdir(send_folder_name);
                             char open_folder[255];
                             sprintf(open_folder, "./%s/%s", send_folder_name, message);
                             FILE *f = fopen(open_folder, "wb+");
-
-                            printf("%s -> %s\n", p->username, open_folder);
-                            while (select(1, &readfds, NULL, NULL, &tv) != -1)
+                            int vr = 0;
+                            /* Отправка файла на сервер. */
+                            printf("[%s - %s]\n", p->username, open_folder);
+                            while (1)
                             {
                                 if (FD_ISSET(p->recv_socket, &readfds))
                                 {
@@ -214,28 +313,16 @@ unsigned long send_reveive_protocol(void *arg)
                             }
                             fclose(f);
                             f = fopen(open_folder, "rb");
-                            send(user_database[i].recv_socket, p->answer, BUFFER_SIZE, 0);
+                            send(iter->recv_socket, p->answer, BUFFER_SIZE, 0);
                             vr = -1;
-                            printf("%s -> %s\n", p->username, user_database[i].username);
+                            printf("[%s - %s]\n", p->username, iter->username);
                             while (vr)
                             {
                                 vr = fread(message, sizeof(char), BUFFER_SIZE, f);
-                                send(user_database[i].recv_socket, message, vr, 0);
+                                send(iter->recv_socket, message, vr, 0);
                             }
                         }
-                    }
-                    if (p->answer[0] == 0)
-                    {
-                        sprintf(p->answer, "%s|%s", protocol_commands[5], protocol_commands[5]);
-                        send(p->recv_socket, p->answer, BUFFER_SIZE, 0);
-                        while (select(1, &readfds, NULL, NULL, &tv) != -1)
-                        {
-                            if (FD_ISSET(p->recv_socket, &readfds))
-                            {
-                                vr = recv(p->recv_socket, message, BUFFER_SIZE, 0);
-                                memset(message, 0, BUFFER_SIZE);
-                            }
-                        }
+                        iter = iter->next;
                     }
                 }
             }
@@ -251,20 +338,11 @@ unsigned long send_reveive_protocol(void *arg)
                     strcpy(message, token);
                     puts(message_type);
                     sprintf(p->answer, "%s|%s(broadcast)|%s", message_type, p->username, message);
-                    for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
+                    while (iter->next)
                     {
-                        if (send(user_database[i].recv_socket, p->answer, BUFFER_SIZE, 0))
-                            printf("%s -> %s\n", p->username, user_database[i].username);
-                        else
-                        {
-                            error_code = WSAGetLastError();
-                            switch (error_code)
-                            {
-                            default:
-                                printf("Ошибка при отправке сообщения. Код %d", error_code);
-                                break;
-                            }
-                        }
+                        send(iter->recv_socket, p->answer, BUFFER_SIZE, 0);
+                        printf("[%s - %s]\t%s\n", p->username, iter->username, message);
+                        iter = iter->next;
                     }
                 }
                 /* Отправка файла всем клиентам. MSG_FILE*/
@@ -293,8 +371,8 @@ unsigned long send_reveive_protocol(void *arg)
                     sprintf(open_folder, "./broadcast_send/%s", message);
                     FILE *f = fopen(open_folder, "wb+");
                     int bytes_received = 0;
-                    /* Отправка сообщения клиенту. */
-                    printf("%s -> %s\n", p->username, open_folder);
+                    /* Отправка файла на сервер. */
+                    printf("[%s - %s]\t%s\n", p->username, open_folder, message);
                     while (1)
                     {
                         /* Проверка наличия данных в сокете без прерываний. */
@@ -310,24 +388,21 @@ unsigned long send_reveive_protocol(void *arg)
                     }
                     fclose(f);
 
-                    for (size_t i = 0; i < CLIENTS_QUANTITY; i++)
+                    while (iter->next)
                     {
                         bytes_received = -1;
-                        if (user_database[i].recv_socket == p->recv_socket)
-                            continue;
-
                         /* Отправка ответа на все подключенные клиенты. */
-                        send(user_database[i].recv_socket, p->answer, BUFFER_SIZE, 0);
-
+                        send(iter->recv_socket, p->answer, BUFFER_SIZE, 0);
+                        printf("[%s - %s]\n", p->username, iter->username);
                         f = fopen(open_folder, "rb");
-                        printf("%s -> %s\n", p->username, user_database[i].username);
                         while (bytes_received)
                         {
                             bytes_received = fread(message, sizeof(char), BUFFER_SIZE, f);
                             /* Двоичное чтение из файла и отправка на клиент. */
-                            send(user_database[i].recv_socket, message, bytes_received, 0);
+                            send(iter->recv_socket, message, bytes_received, 0);
                         }
                         fclose(f);
+                        iter = iter->next;
                     }
                 }
             }
@@ -348,7 +423,7 @@ unsigned long send_reveive_protocol(void *arg)
                 break;
             }
             client_counter--;
-            memset(p->username, 0, 255);
+            erase(p->username);
             send_user_list();
             break;
         }
@@ -356,7 +431,6 @@ unsigned long send_reveive_protocol(void *arg)
         memset(command, 0, BUFFER_SIZE);
         memset(message_type, 0, BUFFER_SIZE);
         memset(message, 0, BUFFER_SIZE);
-        memset(p->answer, 0, BUFFER_SIZE);
     }
 
     free(command);
