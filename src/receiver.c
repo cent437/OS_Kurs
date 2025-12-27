@@ -287,7 +287,13 @@ unsigned long send_reveive_protocol(void *arg)
                     token = strtok(NULL, "|");
                     strcpy(message, token); // Получение сообщения.
                     char send_folder_name[255];
-
+                    struct timeval tv;
+                    int s1[1] = {p->recv_socket};
+                    fd_set readfds;
+                    FD_SET(p->recv_socket, &readfds);
+                    tv.tv_sec = 1;
+                    tv.tv_usec = 0;
+                    int vr = 0;
                     while (iter->next)
                     {
                         /* Поиск клиента в базе данных. */
