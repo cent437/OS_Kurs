@@ -311,9 +311,14 @@ unsigned long send_reveive_protocol(void *arg)
                             printf("[%s - %s]\n", p->username, open_folder);
                             while (1)
                             {
-                                if (FD_ISSET(p->recv_socket, &readfds))
+                                /* Проверка наличия данных в сокете без прерываний. */
+                                if (select(1, &readfds, NULL, NULL, &tv) == -1)
+                                    break;
+                                else if (FD_ISSET(p->recv_socket, &readfds))
                                 {
                                     vr = recv(p->recv_socket, message, BUFFER_SIZE, 0);
+
+                                    /* Двоичная запись в файл полученных из сокета данных. */
                                     fwrite(message, sizeof(char), vr, f);
                                 }
                             }
