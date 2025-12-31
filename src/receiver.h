@@ -14,20 +14,21 @@
 
 #include <winsock2.h>
 #include <unistd.h>
-#define PORT 1000           // Порт для обмена данными.
-#define CLIENTS_QUANTITY 20 // Количество одновременных пользователей.
-#define BUFFER_SIZE 0x64000 // Количество байт, отправляемых за раз.
+#define PORT 1000            // Порт для обмена данными.
+#define CLIENTS_QUANTITY 20  // Количество одновременных пользователей.
+#define BUFFER_SIZE 0x100000 // Количество байт, отправляемых за раз.
+#define REQUEST_SIZE 0x400
 
 /*
     Структура пакета с полем для данных
     и сокетом для отправки этих данных.
 */
-typedef struct user_database
+typedef struct user
 {
     struct user *next, *prev;
     int recv_socket;
     char username[255];
-    char answer[BUFFER_SIZE];
+    char answer[REQUEST_SIZE];
 
 } user;
 
