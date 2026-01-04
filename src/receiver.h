@@ -25,11 +25,10 @@
 */
 typedef struct user
 {
+    char answer[REQUEST_SIZE];
+    char username[255];
     struct user *next, *prev;
     int recv_socket;
-    char username[255];
-    char answer[REQUEST_SIZE];
-
 } user;
 
 /* Инициализация сервера. */
