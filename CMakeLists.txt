@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.5...4.0)
 project(OS_Kurs C CXX)
 
-
-#add_executable(client src/sender.c)
 add_executable(server src/main.c src/receiver.c)
-#target_link_libraries(client wsock32)
-target_link_libraries(server wsock32)
+if(WIN32)
+    add_compile_options(_WIN32 -Wall)
+    target_link_libraries(server wsock32)
+elseif(UNIX)
+    add_compile_options(_LINUX -Wall)
+endif()

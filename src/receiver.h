@@ -11,8 +11,13 @@
     <1-3>|<4-5>|<имя пользователя>|<сообщение>
     Символ "|" запрещен для отправки в сообщении.
 */
-
+#ifdef _WIN32
 #include <winsock2.h>
+
+#elif _LINUX
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 #include <unistd.h>
 #define PORT 1000            // Порт для обмена данными.
 #define CLIENTS_QUANTITY 20  // Количество одновременных пользователей.
