@@ -282,11 +282,6 @@ unsigned long send_reveive_protocol(void *arg)
                         }
                         iter = iter->next;
                     }
-                    if (p->answer[0] == 0)
-                    {
-                        sprintf(p->answer, "%s|%s", protocol_commands[5], protocol_commands[5]);
-                        send(p->recv_socket, p->answer, REQUEST_SIZE, 0);
-                    }
                 }
                 /* Отправка файла. MSG_FILE */
                 else if (strcmp(message_type, protocol_commands[4]) == 0)
