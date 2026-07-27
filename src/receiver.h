@@ -10,7 +10,6 @@
     <1-3>|<4-5>|<имя пользователя>|<сообщение>
     Символ "|" запрещен для отправки в сообщении.
 */
-#include <winsock2.h>
 #include <unistd.h>
 #define PORT 1000            // Порт для обмена данными.
 #define CLIENTS_QUANTITY 20  // Количество одновременных пользователей.
@@ -36,4 +35,4 @@ void set_connect();
 /*
     Функция реализации протокола приема и передачи данных по сети.
 */
-unsigned long send_reveive_protocol(void *arg);
+void *send_reveive_protocol(void *arg);

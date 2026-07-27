@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <errno.h>
 #include "receiver.h"
 struct sockaddr_in address = {0};
 
@@ -19,8 +24,8 @@ const char protocol_commands[][REQUEST_SIZE] = {
     "MSG_FILE",
     "ERR"};
 user *head = NULL, *tail = NULL;
-HANDLE
-send_receive_thread[CLIENTS_QUANTITY] = {NULL};
+pthread_t
+    send_receive_thread[CLIENTS_QUANTITY] = {0};
 
 void init()
 {
@@ -176,9 +181,9 @@ void set_connect()
         {
             push_back();
             /* Создание и запуск нитей для параллельного приема и передачи данных с клиентских компьютеров. */
-            send_receive_thread[client_counter] = CreateThread(NULL,
-                                                               0,
-                                                               send_reveive_protocol, tail, 0, NULL);
+            pthread_create(&send_receive_thread[client_counter],
+                           NULL,
+                           send_reveive_protocol, (void *)tail);
             client_counter++;
             printf("Подключено: %d/%d\n", client_counter, CLIENTS_QUANTITY);
         }
@@ -203,7 +208,7 @@ void send_user_list()
         iter_j = head;
     }
 }
-unsigned long send_reveive_protocol(void *arg)
+void *send_reveive_protocol(void *arg)
 {
 
     /* Массивы для хранения сообщения и имени пользователя. */
@@ -297,7 +302,7 @@ unsigned long send_reveive_protocol(void *arg)
                         {
                             sprintf(p->answer, "%s|%s|%s", message_type, p->username, message);
                             sprintf(send_folder_name, "%s-%s", p->username, iter->username);
-                            mkdir(send_folder_name);
+                            mkdir(send_folder_name, 0777);
                             char open_folder[255];
                             sprintf(open_folder, "./%s/%s", send_folder_name, message);
                             FILE *f = fopen(open_folder, "wb+");
@@ -363,7 +368,7 @@ unsigned long send_reveive_protocol(void *arg)
                     /* Создание каталога для промежуточного хранения файлов. */
                     char open_folder[255];
                     puts(protocol_commands[4]);
-                    mkdir("broadcast_send");
+                    mkdir("broadcast_send", 0777);
                     sprintf(open_folder, "./broadcast_send/%s", message);
                     FILE *f = fopen(open_folder, "wb+");
 
@@ -408,7 +413,7 @@ unsigned long send_reveive_protocol(void *arg)
         else if (valread <= 0)
         {
 
-            error_code = WSAGetLastError();
+            error_code = errno;
             switch (error_code)
             {
             case 0:
