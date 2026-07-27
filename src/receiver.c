@@ -9,13 +9,12 @@
 #include <errno.h>
 #include "receiver.h"
 struct sockaddr_in address = {0};
-
+int opt = 1;
 int
     addrlen = sizeof(address),
     listen_socket = 0,
     client_counter = 0;
 
-char opt = '1';
 const char protocol_commands[][REQUEST_SIZE] = {
     "MT_CONNECT",
     "MT_SEND_TO",
@@ -255,7 +254,7 @@ void *send_reveive_protocol(void *arg)
             {
                 puts(command);
                 token = strtok(NULL, "|");
-                strcpy(p->username, token);
+                strcpy(p->username, message_type);
                 printf("%s подключен.\n", p->username);
                 sprintf(p->answer, "%s|%s", command, p->username);
                 send_user_list();
